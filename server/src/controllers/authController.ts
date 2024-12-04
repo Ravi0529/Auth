@@ -165,3 +165,22 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({ error: "Internal Server Error" })
     }
 }
+
+// Get-Me
+interface AuthenticatedRequest extends Request {
+    user: UserDocument
+}
+
+export const getMe = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+    try {
+        const user = await User.findById(req.user._id).select("-password") as UserDocument | null
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" })
+        }
+
+        return res.status(200).json({ user })
+    } catch (error) {
+        return res.status(500).json({ error: "Internal Server Error" })
+    }
+}
