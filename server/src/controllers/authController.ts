@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { body, validationResult } from "express-validator"
 import User, { UserDocument } from "../models/userModel.js"
 import { Strategy as LocalStrategy } from "passport-local"
+import { generateTokenAndSetCookie } from "../lib/util/generateToken.js"
 
 // Set up Passport local strategy
 passport.use('signup', new LocalStrategy(
@@ -84,13 +85,12 @@ export const signup = [
                 return res.status(400).json({ message: info?.message || 'Authentication failed.' })
             }
 
+            generateTokenAndSetCookie(user._id.toString(), res)
+
             return res.status(201).json({
                 message: "User registered successfully!",
                 user: {
-                    username: user.username,
-                    email: user.email,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
+                    user
                 },
             })
         })(req, res, next)
