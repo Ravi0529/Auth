@@ -39,6 +39,32 @@ passport.use('signup', new LocalStrategy(
     }
 ))
 
+// Set up Passport local strategy for login
+passport.use('login', new LocalStrategy(
+    {
+        usernameField: 'email',
+        passwordField: 'password',
+        passReqToCallback: true,
+    },
+    async (_, email, password, done) => {
+        try {
+            const existingUser = await User.findOne({ email })
+            if (!existingUser) {
+                return done(null, false, { message: "Invalid email or password." })
+            }
+
+            const isPasswordCorrect = await bcrypt.compare(password, existingUser.password)
+            if (!isPasswordCorrect) {
+                return done(null, false, { message: "Invalid email or password." })
+            }
+
+            return done(null, existingUser)
+        } catch (error) {
+            return done(error)
+        }
+    }
+))
+
 // Signup Controller with Validation and Passport.js
 export const signup = [
     body("email")
@@ -96,3 +122,46 @@ export const signup = [
         })(req, res, next)
     },
 ]
+
+// Login Controller with Validation and Passport.js
+export const login = [
+    body("email")
+        .isEmail().withMessage("Please enter a valid email address.")
+        .normalizeEmail(),
+    body("password")
+        .isLength({ min: 8 }).withMessage("Password must be at least 8 characters long."),
+
+    async (req: Request, res: Response, next: NextFunction) => {
+        const errors = validationResult(req)
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() })
+        }
+
+        passport.authenticate('login', async (err: Error | null, user: UserDocument | false, info: { message: string } | undefined) => {
+            if (err) {
+                return res.status(500).json({ message: "Server error during login." })
+            }
+
+            if (!user) {
+                return res.status(400).json({ message: info?.message || 'Invalid login credentials.' })
+            }
+
+            generateTokenAndSetCookie(user._id.toString(), res)
+
+            return res.status(200).json({
+                message: "Login successful!",
+                user: { user },
+            })
+        })(req, res, next)
+    },
+]
+
+// Logout
+export const logout = async (req: Request, res: Response): Promise<void> => {
+    try {
+        res.cookie("jwt", "", { maxAge: 0 })
+        res.status(200).json({ message: "Logout Successfully" })
+    } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" })
+    }
+}
